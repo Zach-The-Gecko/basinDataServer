@@ -32,8 +32,8 @@
     MMtn Wind:          body > div.mc-weather > div.mc-weather__wrap > div > div > ul > li:nth-child(2) > ul > li:nth-child(2) > ul > li:nth-child(2) > h4
 */
 
-const cheerio = require("cheerio");
-const axios = require("axios");
+import cheerio from "cheerio";
+import axios from "axios";
 
 const getBasinData = async () => {
   // downloading the target web page
@@ -122,4 +122,4 @@ const getBasinData = async () => {
   return returnObj;
 };
 
-getBasinData().then(JSON.stringify).then(console.log);
+export default getBasinData;
