@@ -19,8 +19,6 @@
         expres.js server.
  */
 
-
-
 /*
     Last Update:        body > div.mc-weather > div.mc-weather__wrap > p
 
@@ -34,94 +32,94 @@
     MMtn Wind:          body > div.mc-weather > div.mc-weather__wrap > div > div > ul > li:nth-child(2) > ul > li:nth-child(2) > ul > li:nth-child(2) > h4
 */
 
-
-
-
-const cheerio = require("cheerio")
+const cheerio = require("cheerio");
 const axios = require("axios");
 
-const getBasinHTMLLoadedToCheerio = async () => {
-    // downloading the target web page
-    // by performing an HTTP GET request in Axios
-    const axiosResponse = await axios.request({
-        method: "GET",
-        url: "https://www.snowbasin.com/the-mountain/mountain-report/",
-        headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
-        }
-    })
+const getBasinData = async () => {
+  // downloading the target web page
+  // by performing an HTTP GET request in Axios
+  const axiosResponse = await axios.request({
+    method: "GET",
+    url: "https://www.snowbasin.com/the-mountain/mountain-report/",
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+    },
+  });
 
-    return cheerio.load(axiosResponse.data)
-}
+  const $ = cheerio.load(axiosResponse.data);
 
-// GET /snowReport
-const snowReport = async () => {
+  // stores the last time the snow report was updated
+  const lastUpdate = $("body > div.mc-weather > div.mc-weather__wrap > p")
+    .text()
+    .replace("Last Updated: ", "");
 
-    const $ = await getBasinHTMLLoadedToCheerio();
+  // array to store the inital snow data
+  const rawSnowNums = [];
 
-    // stores the last time the snow report was updated
-    const lastUpdate = $("body > div.mc-weather > div.mc-weather__wrap > p").text().replace("Last Updated: ", "");
+  // Loops through a HTML selector path to return all the data we want
+  for (let i = 1; i <= 5; i++) {
+    rawSnowNums.push(
+      $(
+        `body > div.mc-weather > div.mc-weather__wrap > div > div > ul > li:nth-child(1) > ul > li:nth-child(${i}) > p`
+      )
+        .text()
+        .replace("”", "")
+    );
+  }
 
-    // array to store the inital data
-    const rawNums = [];
+  // GET /conditions ------------------------------------------------------------
 
-    // Loops through a HTML selector path to return all the data we want
-    for(let i = 1; i <= 5; i++){
-        rawNums.push($(`body > div.mc-weather > div.mc-weather__wrap > div > div > ul > li:nth-child(1) > ul > li:nth-child(${i}) > p`).text().replace('”', ""));
+  // array to store the initial data
+  const rawConditionNums = [];
+
+  // loops through html selector path to get all required data
+  // required paths can be found at the top of the page
+  for (let i = 1; i <= 2; i++) {
+    rawConditionNums.push(
+      $(
+        `body > div.mc-weather > div.mc-weather__wrap > div > div > ul > li:nth-child(2) > ul > li:nth-child(${i}) > p`
+      )
+        .text()
+        .replace("°F", "")
+    );
+
+    for (let j = 1; j <= 2; j++) {
+      rawConditionNums.push(
+        $(
+          `body > div.mc-weather > div.mc-weather__wrap > div > div > ul > li:nth-child(2) > ul > li:nth-child(${i}) > ul > li:nth-child(${j}) > h4`
+        )
+          .text()
+          .replace("Wind ", "")
+      );
     }
+  }
 
+  // template for server response
+  const returnObj = {
+    snowData: {
+      overnightIn: rawSnowNums[0],
+      baseIn: rawSnowNums[1],
+      last24HrsIn: rawSnowNums[2],
+      seasonIn: rawSnowNums[3],
+      stormIn: rawSnowNums[4],
+    },
+    conditions: {
+      base: {
+        tempF: rawConditionNums[0],
+        weatherDesc: rawConditionNums[1],
+        wind: rawConditionNums[2],
+      },
+      midMountain: {
+        tempF: rawConditionNums[3],
+        weatherDesc: rawConditionNums[4],
+        wind: rawConditionNums[5],
+      },
+      lastUpdate,
+    },
+  };
 
-    // template for server response
-    const returnObj = {
-        overnightIn: rawNums[0],
-        baseIn: rawNums[1],
-        last24HrsIn: rawNums[2],
-        seasonIn: rawNums[3],
-        stormIn: rawNums[4],
-        lastUpdate
-    }
+  return returnObj;
+};
 
-    return returnObj
-}
-
-// GET /conditions
-const conditions = async () => {
-
-    const $ = await getBasinHTMLLoadedToCheerio();
-
-    // stores the last time the snow report was updated
-    const lastUpdate = $("body > div.mc-weather > div.mc-weather__wrap > p").text().replace("Last Updated: ", "");
-
-    // array to store the initial data
-    const rawNums = [];
-
-    // loops through html selector path to get all required data
-    // required paths can be found at the top of the page
-    for(let i = 1; i <= 2; i++){
-        rawNums.push($(`body > div.mc-weather > div.mc-weather__wrap > div > div > ul > li:nth-child(2) > ul > li:nth-child(${i}) > p`).text().replace("°F", ""))
-        
-        for(let j = 1; j <= 2; j++){
-            rawNums.push($(`body > div.mc-weather > div.mc-weather__wrap > div > div > ul > li:nth-child(2) > ul > li:nth-child(${i}) > ul > li:nth-child(${j}) > h4`).text().replace("Wind ", ""))
-        }
-    }
-
-    // template for server response
-    const returnObj = {
-        base:{
-            tempF: rawNums[0],
-            weatherDesc: rawNums[1],
-            wind: rawNums[2],
-        },
-        midMountain:{
-            tempF: rawNums[3],
-            weatherDesc: rawNums[4],
-            wind: rawNums[5],
-        },
-        lastUpdate
-    }
-
-    return returnObj
-}
-
-// Logs the data
-snowReport().then(console.log).then(() => conditions().then(console.log))
+getBasinData().then(JSON.stringify).then(console.log);
